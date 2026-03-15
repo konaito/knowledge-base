@@ -1,53 +1,52 @@
-# リサーチガイド — クエリ設計・タグ・品質基準
+# Research Guide — Query Design, Tagging, Quality Criteria
 
-## クエリ設計
+## Query Design
 
-research.pyの出力品質は **クエリの具体性** で決まる。ユーザーの曖昧な要求を具体的なクエリに変換すること。
+The output quality of research.py is determined by **query specificity**. Transform vague user requests into specific queries.
 
 ```
-❌ 悪いクエリ: "React"
-❌ 悪いクエリ: "認証について"
-✅ 良いクエリ: "React Server Componentsのデータフェッチパターン — use(), Suspense, キャッシュ戦略の比較"
-✅ 良いクエリ: "OAuth 2.0 PKCE フローの実装 — SPAにおけるセキュリティ考慮事項とトークン管理"
+❌ Bad: "React"
+❌ Bad: "about authentication"
+✅ Good: "React Server Components data fetching patterns — comparing use(), Suspense, and caching strategies"
+✅ Good: "OAuth 2.0 PKCE flow implementation — security considerations and token management for SPAs"
 ```
 
-ルール:
-- **対象を限定する**: 「Xについて」ではなく「XのYにおけるZ」
-- **何を知りたいか明示する**: 「比較」「実装方法」「トレードオフ」「落とし穴」等の観点を含める
-- **文脈を与える**: 「SPAにおける」「大規模チームでの」等の制約条件
+Rules:
+- **Narrow the scope**: not "about X" but "Z aspect of Y within X"
+- **State what you want to know**: include perspectives like "comparison", "implementation", "trade-offs", "pitfalls"
+- **Provide context**: constraints like "for SPAs", "in large teams"
 
-## slug設計
+## Slug Design
 
-英語ベースの短いslugを `--output` で明示指定する。
+Specify English-based short slugs via `--output`.
 
 ```
 ✅ react-server-components-data-fetching
 ✅ oauth2-pkce-spa-implementation
-❌ reactサーバーコンポーネントのデータフェッチパターン
 ```
 
-## タグ設計
+## Tag Design
 
-タグは検索精度に直結する。以下のルールで3-6個付与:
+Tags directly affect search accuracy. Apply 3-6 tags using these rules:
 
-- **技術名**: `react`, `typescript`, `supabase`（固有名詞、小文字）
-- **概念**: `architecture`, `security`, `performance`（抽象カテゴリ）
-- **用途**: `frontend`, `backend`, `devops`（適用領域）
+- **Technology names**: `react`, `typescript`, `supabase` (proper nouns, lowercase)
+- **Concepts**: `architecture`, `security`, `performance` (abstract categories)
+- **Domains**: `frontend`, `backend`, `devops` (application areas)
 
-## summary設計
+## Summary Design
 
-summaryはINDEXに表示され、関連性判断の唯一の手がかり。**具体的に書く**こと。
+Summaries appear in the INDEX and are the sole basis for relevance judgment. **Be specific**.
 
 ```
-❌ 悪い: "Reactに関するドキュメント"
-✅ 良い: "React Server Componentsのデータフェッチパターン。use(), Suspense, キャッシュ戦略の比較と実装例"
+❌ Bad: "Document about React"
+✅ Good: "React Server Components data fetching patterns. Comparison and implementation examples for use(), Suspense, and caching strategies"
 ```
 
-## 品質確認
+## Quality Check
 
-保存後、以下を確認:
-- 具体的なコード例や数値が含まれているか
-- 表面的な説明で終わっていないか
-- 情報源が明記されているか
+After saving, verify:
+- Contains specific code examples or numbers
+- Goes beyond surface-level explanation
+- Sources are cited
 
-品質が不十分な場合、クエリを変えて再実行するか内容を補強・編集する。
+If quality is insufficient, re-run with a different query or supplement the content manually.

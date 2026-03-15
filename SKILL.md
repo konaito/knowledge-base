@@ -1,101 +1,100 @@
 ---
 name: prior-knowledge-skill
-description: "事前知識空間の管理。リサーチ結果をindex化して蓄積し、エージェントが自発的に関連知識を選択・ロードする。トリガー: (1)「リサーチして知識ベースに保存」「事前に調べて」(2)「知識ベースから探して」「事前知識を参照」(3)既存ドキュメントを知識ベースに取り込みたい時"
+description: "Prior knowledge space management. Index and accumulate research results so the agent can autonomously select and load relevant knowledge. Triggers: (1) 'research and save to knowledge base', 'look this up beforehand' (2) 'search the knowledge base', 'check prior knowledge' (3) when importing existing documents into the knowledge base"
 ---
 
 # prior-knowledge-skill
 
-## 重要: 知識の粒度
+## Important: Knowledge Granularity
 
-知識ベースの価値は **小粒な参考資料が複数indexされている状態** にある。1つの巨大な記事ではない。
+The value of a knowledge base lies in **many small reference articles indexed together**, not one giant article.
 
 ```
-❌ 悪い: 「認証」で1本の巨大記事
-✅ 良い: 以下のように分解して複数記事にする
-   - oauth2-pkce-overview.md        ← PKCEの基本概念
-   - oauth2-token-storage.md        ← トークンストレージ戦略比較
-   - session-vs-jwt.md              ← Session vs JWT
-   - auth-middleware-compliance.md   ← 法務要件との関係
+❌ Bad: one massive article for "authentication"
+✅ Good: decompose into multiple articles
+   - oauth2-pkce-overview.md         ← PKCE basics
+   - oauth2-token-storage.md         ← Token storage strategy comparison
+   - session-vs-jwt.md               ← Session vs JWT
+   - auth-middleware-compliance.md    ← Legal compliance requirements
 ```
 
-大きなトピックのリサーチを依頼された場合:
-1. トピックを3-7個の小さな観点に分解する
-2. 各観点ごとにresearch.pyを実行する（1観点 = 1記事）
-3. エージェントがタスクに応じて必要な記事だけ選んで読める状態にする
+When asked to research a large topic:
+1. Decompose the topic into 3-7 small aspects
+2. Run research.py for each aspect (1 aspect = 1 article)
+3. Ensure the agent can selectively load only the articles it needs
 
-3つのモードで使い分ける:
+Use 3 modes:
 
-| モード | トリガー | 実行内容 |
-|--------|---------|---------|
-| **リサーチ** | 「調べて保存して」「事前に調べて」 | research.py → index-manager.ts add |
-| **取り込み** | 既存ドキュメントを知識ベースに入れたい時 | import-doc.ts（INDEX自動更新） |
-| **参照** | タスク着手前 | INDEX.md読み → 関連記事のみロード |
+| Mode | Trigger | Action |
+|------|---------|--------|
+| **Research** | "research and save", "look this up" | research.py → index-manager.ts add |
+| **Import** | importing existing docs into knowledge base | import-doc.ts (auto-updates INDEX) |
+| **Reference** | before starting a task | read INDEX.md → load relevant articles only |
 
-保存先: `docs/knowledge/articles/`、INDEX: `docs/knowledge/INDEX.md`
+Storage: `docs/knowledge/articles/`, INDEX: `docs/knowledge/INDEX.md`
 
 ---
 
-## リサーチ → 保存
+## Research → Save
 
-Perplexity API（検索機能付きLLM）でトピックをリサーチし知識ベースに保存する。
-クエリ設計・タグ・品質基準の詳細は [references/research-guide.md](references/research-guide.md) を参照。
+Deep research a topic via Perplexity API (search-augmented LLM) and save to the knowledge base.
+For query design, tagging, and quality criteria, see [references/research-guide.md](references/research-guide.md).
 
-**前提条件**: research.pyは `OPENROUTER_API_KEY` が必要。リサーチ実行前に `~/.claude/skills/prior-knowledge-skill/.env` を確認すること。
+**Prerequisite**: research.py requires `OPENROUTER_API_KEY`. Check `~/.claude/skills/prior-knowledge-skill/.env` before running.
 
-未設定の場合、ユーザーにAPIキーの設定を依頼する:
+If not set, ask the user to configure the API key:
 
 ```bash
-# ユーザーから提供されたAPIキーを保存
 echo 'OPENROUTER_API_KEY=sk-or-...' >> ~/.claude/skills/prior-knowledge-skill/.env
 ```
 
-APIキーがない場合でも **取り込み・参照モードは使用可能**。リサーチのみ制限される。
+Import and reference modes work **without an API key**. Only research is restricted.
 
 ```bash
-# 1. リサーチ実行（slug は英語で明示指定すること）
+# 1. Run research (specify slug in English)
 uv run ~/.claude/skills/prior-knowledge-skill/scripts/research.py \
-  "具体的なクエリ" \
+  "specific query" \
   --output docs/knowledge/articles/<slug>.md \
   --tags "tag1,tag2"
 
-# 2. INDEXに追加（stdoutに出力されたパスを使用）
+# 2. Add to INDEX (use the path output to stdout)
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts add docs/knowledge/articles/<slug>.md
 ```
 
-## 既存ドキュメントの取り込み
+## Import Existing Documents
 
 ```bash
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/import-doc.ts <source.md> \
-  [--title "タイトル"] \
-  [--summary "1行要約"] \
+  [--title "Title"] \
+  [--summary "One-line summary"] \
   [--tags "tag1,tag2"]
 ```
 
-- `docs/knowledge/articles/` にフロントマター付きでコピーし、INDEX自動更新
-- 元ファイルは変更しない（非破壊）
-- summaryは具体的に書くこと（[research-guide.md](references/research-guide.md) 参照）
+- Copies to `docs/knowledge/articles/` with frontmatter, auto-updates INDEX
+- Original file is not modified (non-destructive)
+- Write summaries specifically ([research-guide.md](references/research-guide.md))
 
-## 知識の参照
+## Knowledge Reference
 
-INDEX.mdはインテントINDEXデータベースとして機能する。コンテキストが圧縮されても、INDEX.mdを1回読むだけでプロジェクトの知識空間全体を把握し、必要な知識を自発的に選択できる。
+INDEX.md functions as an intent INDEX database. Even after context compression, reading INDEX.md once gives a complete picture of the project's knowledge space, enabling autonomous selection of needed knowledge.
 
-タスク着手前に以下を実行:
+Before starting a task:
 
-1. `docs/knowledge/INDEX.md` を読む（タイトル+要約テーブルのみ、軽量）
-2. タスクに関連する記事IDを特定する
-3. `docs/knowledge/articles/<id>.md` を読んでからタスクに着手する
-   - 関連記事が0件なら何もロードせず着手（無理に探さない）
-   - 関連記事が多い場合は1-3件に絞る
+1. Read `docs/knowledge/INDEX.md` (title + summary table only, lightweight)
+2. Identify article IDs relevant to the task
+3. Read `docs/knowledge/articles/<id>.md` before starting work
+   - If 0 relevant articles, proceed without loading (don't force it)
+   - If many relevant articles, narrow to 1-3 most relevant
 
-キーワード検索も可能:
+Keyword search is also available:
 
 ```bash
-bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts search "キーワード"
+bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts search "keyword"
 ```
 
 ---
 
-## INDEX管理
+## INDEX Management
 
 ```bash
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts add <article.md>
@@ -104,9 +103,9 @@ bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts rebuild
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts search <keyword>
 ```
 
-すべてデフォルトで `docs/knowledge/` を対象とする。`--index <path>` `--dir <path>` で変更可能。
+All default to `docs/knowledge/`. Override with `--index <path>` `--dir <path>`.
 
-## セットアップ
+## Setup
 
 ```bash
 cd ~/.claude/skills/prior-knowledge-skill && bun install

@@ -1,127 +1,128 @@
 # prior-knowledge-skill
 
-**AIエージェントのための事前知識空間** — Claude Code Skill
+**Prior knowledge space for AI agents** — Claude Code Skill
 
-## なぜこのスキルが必要か
+## Why This Skill Exists
 
-### 原体験: `/docs` による知識蓄積の限界
+### The Origin: Limits of `/docs` Knowledge Accumulation
 
-AIエージェントと長時間作業していると、調査結果や技術知見を `docs/` ディレクトリにMarkdownとして蓄積するようになる。コンテキストウィンドウが圧縮されても、ファイルシステムに残った知識は読み直せば再利用できるからだ。
+When working with AI agents over long sessions, you start accumulating research results and technical insights as Markdown files in a `docs/` directory. Even after context compression, knowledge persisted on the filesystem can be re-read and reused.
 
-しかしこのアプローチには根本的な問題がある: **`docs/` に何が蓄積されているかがエージェントにとって明示的でない**。コンテキストが圧縮された後、エージェントが `docs/` 内の30個のMarkdownファイルから関連知識を見つけるには、ファイル一覧を取得し、ファイル名から推測し、場合によっては中身を読むしかない。蓄積された知識の全体像を把握する手段がなく、関連知識があるのに使われないまま眠る。
+But this approach has a fundamental problem: **what's accumulated in `docs/` is not explicit to the agent**. After context compression, an agent trying to find relevant knowledge from 30 Markdown files in `docs/` has to list files, guess from filenames, and possibly read each one. There's no way to grasp the full scope of accumulated knowledge, so relevant knowledge sits unused.
 
-### INDEX パターン: コンテキスト圧縮に耐える知識空間
+### The INDEX Pattern: A Knowledge Space That Survives Context Compression
 
-このスキルは `INDEX.md` を導入することで、コンテキスト圧縮後も **知識空間全体の地図** を即座に再構築できるようにする:
+This skill introduces `INDEX.md` to enable **instant reconstruction of the entire knowledge map** even after context compression:
 
 ```
-┌─────────────────────────────────────────┐
-│  コンテキストウィンドウ                      │
+┌──────────────────────────────────────────┐
+│  Context Window                          │
 │                                          │
-│  ┌──────────────────┐                    │
-│  │ INDEX.md (~数百トークン)│ ← 常にロード     │
-│  │ タイトル | 要約 | タグ │                  │
-│  └──────────────────┘                    │
+│  ┌───────────────────────┐               │
+│  │ INDEX.md (~few hundred│ ← always loaded│
+│  │  tokens)              │               │
+│  │ title | summary | tags│               │
+│  └───────────────────────┘               │
 │           │                              │
-│           │ 関連記事のみ選択的にロード         │
-│           ▼                              │
-│  ┌──────────────────┐                    │
-│  │ article-a.md     │ ← 必要な時だけ        │
-│  └──────────────────┘                    │
+│           │ selectively load relevant    │
+│           ▼ articles only                │
+│  ┌───────────────────────┐               │
+│  │ article-a.md          │ ← on demand   │
+│  └───────────────────────┘               │
 │                                          │
-│  残りのコンテキスト → 実際のタスクに使える       │
-└─────────────────────────────────────────┘
+│  remaining context → available for work  │
+└──────────────────────────────────────────┘
 ```
 
-INDEX.mdは2つの役割を持つ:
+INDEX.md serves two roles:
 
-1. **コンテキスト効率**: 軽量なテーブル（タイトル + 1行要約）なので、数十件の知識があってもコンテキストへの負荷は最小限。エージェントはINDEXだけ見て「このタスクに関連する知識はあるか？」を判断し、必要な記事だけをロードする。
+1. **Context efficiency**: A lightweight table (title + one-line summary) keeps context overhead minimal even with dozens of articles. The agent reads only the INDEX to decide "is there relevant knowledge for this task?" and loads only the needed articles.
 
-2. **インテントINDEXデータベース**: コンテキストが圧縮されても、INDEX.mdを1回読むだけでプロジェクトの知識空間全体を把握できる。「何を知っていて、何を知らないか」をエージェントが自発的に判断できる永続的な目次。`docs/` にファイルを放り込むだけでは実現できなかった、**知識の発見可能性** を保証する。
+2. **Intent INDEX database**: Even after context compression, reading INDEX.md once gives the agent a complete picture of the project's knowledge space. A persistent table of contents that lets the agent autonomously judge "what do I know, and what don't I know" — guaranteeing **knowledge discoverability** that simply dumping files into `docs/` could never achieve.
 
-## 設計思想
+## Design Philosophy
 
-### 1. 知識の粒度 — 小さな参考資料の集合体
+### 1. Knowledge Granularity — A Collection of Small References
 
-知識ベースの本質は **1つの巨大なリサーチ結果** ではなく、**小粒な参考資料が複数indexされている状態** にある。
+The essence of a knowledge base is **not one giant research dump**, but **many small reference articles indexed together**.
 
 ```
-❌ こうなってはいけない:
+❌ Don't do this:
 INDEX.md
-└── authentication.md  (5000行の巨大記事)
+└── authentication.md  (5000-line mega article)
 
-✅ こうあるべき:
+✅ Do this:
 INDEX.md
-├── oauth2-pkce-overview.md         ← PKCEの基本概念
-├── oauth2-token-storage.md         ← トークンストレージ戦略比較
+├── oauth2-pkce-overview.md         ← PKCE basics
+├── oauth2-token-storage.md         ← Token storage strategy comparison
 ├── session-vs-jwt.md               ← Session vs JWT
-├── auth-middleware-compliance.md   ← 法務要件との関係
-└── nextauth-v5-migration.md        ← NextAuth v5移行の注意点
+├── auth-middleware-compliance.md    ← Legal compliance requirements
+└── nextauth-v5-migration.md        ← NextAuth v5 migration notes
 ```
 
-エージェントが認証トークンの保存方法で迷ったとき、5000行の巨大記事をロードするのではなく、`oauth2-token-storage.md` だけをピンポイントでロードする。これがINDEXパターンの真価。
+When an agent is unsure about token storage, it loads just `oauth2-token-storage.md` instead of a 5000-line monolith. This is the real power of the INDEX pattern.
 
-大きなトピックをリサーチする場合は、まず3-7個の小さな観点に分解し、各々を独立した記事として保存する。
+For large topics, decompose into 3-7 focused aspects first, then save each as an independent article.
 
-### 2. プロジェクトローカル — グローバルに置かない理由
+### 2. Project-Local — Why Not Global
 
-知識は `docs/knowledge/` にプロジェクト単位で保存する。グローバルな知識ストアは持たない。
+Knowledge is stored per-project in `docs/knowledge/`. No global knowledge store.
 
-理由: LLMが既に持っている汎用知識（React の基本、HTTP の仕組み等）をわざわざ保存する価値はない。保存する価値があるのは **プロジェクト固有のリサーチ結果** — ドメイン知識、アーキテクチャ決定の背景、特定ライブラリの落とし穴など、LLMの訓練データに含まれない知見。
+Why: There's no value in storing generic knowledge that the LLM already has (React basics, how HTTP works, etc.). What's worth storing is **project-specific research** — domain knowledge, architecture decision context, specific library pitfalls — insights not in the LLM's training data.
 
-プロジェクトローカルにすることで、git管理され、チームで共有でき、プロジェクトと一緒に消える。
+Project-local means it's git-managed, team-shareable, and disappears with the project.
 
-### 3. 非同期リサーチ
+### 3. Async Research
 
-リサーチには Perplexity API（OpenRouter経由）を使う。エージェント自身がリサーチを回すのではなく、検索特化のLLMに委任する非同期モデル。
+Research uses the Perplexity API (via OpenRouter). Instead of the agent running research itself, it delegates to a search-specialized LLM — an async model.
 
 ```
-エージェント                    Perplexity API
-    │                              │
-    │  クエリ設計 (具体的に)          │
-    │─────────────────────────────▶│
-    │                              │ 多言語ソース検索
-    │                              │ 情報統合
-    │  フロントマター付きMarkdown     │
-    │◀─────────────────────────────│
-    │                              │
-    │  INDEX更新                    │
-    │  品質確認                     │
-    ▼
+Agent                          Perplexity API
+  │                                │
+  │  Design query (be specific)    │
+  │───────────────────────────────▶│
+  │                                │ Multi-language search
+  │                                │ Information synthesis
+  │  Frontmatter-equipped Markdown │
+  │◀───────────────────────────────│
+  │                                │
+  │  Update INDEX                  │
+  │  Quality check                 │
+  ▼
 ```
 
-リサーチの品質はクエリの具体性で決まる。「Reactについて」ではなく「React Server ComponentsのデータフェッチパターンにおけるSuspenseとuse()の使い分けとキャッシュ戦略」のように、観点と制約を明示する。
+Research quality is determined by query specificity. Not "React" but "React Server Components data fetching patterns — comparing use() vs Suspense with caching strategies."
 
 ### 4. Progressive Disclosure
 
-スキル自体もProgressive Disclosureで設計されている:
+The skill itself uses Progressive Disclosure:
 
-- **SKILL.md**（~90行）— コアワークフローとスクリプトの使い方のみ
-- **references/research-guide.md** — クエリ設計・タグ・品質基準の詳細（必要時のみロード）
-- **assets/article-template.md** — 記事のフロントマターテンプレート
+- **SKILL.md** (~100 lines) — core workflow and script usage only
+- **references/research-guide.md** — query design, tagging, quality criteria (loaded only when needed)
+- **assets/article-template.md** — article frontmatter template
 
-## 機能
+## Features
 
-### リサーチ → 保存
+### Research → Save
 
-Perplexity APIでトピックをディープリサーチし、フロントマター付きMarkdownとして保存する。
+Deep research a topic via Perplexity API, saving as frontmatter-equipped Markdown.
 
 ```bash
-# リサーチ実行
+# Run research
 uv run scripts/research.py \
-  "OAuth 2.0 PKCE フローの実装 — SPAにおけるセキュリティ考慮事項" \
+  "OAuth 2.0 PKCE flow implementation — security considerations for SPAs" \
   --output docs/knowledge/articles/oauth2-pkce-spa.md \
   --tags "oauth,security,spa"
 
-# INDEXに追加
+# Add to INDEX
 bun run scripts/index-manager.ts add docs/knowledge/articles/oauth2-pkce-spa.md
 ```
 
-生成される記事は以下の構造:
+Generated article structure:
 
 ```markdown
 ---
-title: "OAuth 2.0 PKCE フローの実装..."
+title: "OAuth 2.0 PKCE flow implementation..."
 summary: "..."
 tags: ["oauth", "security", "spa"]
 sources: ["https://...", "https://..."]
@@ -129,126 +130,126 @@ created: 2026-03-15
 updated: 2026-03-15
 ---
 
-## 概要
+## Overview
 ...
-## 核心概念
+## Core Concepts
 ...
-## 実践的知見
+## Practical Insights
 ...
-## 比較・トレードオフ
+## Comparisons & Trade-offs
 ...
-## 注意点・落とし穴
+## Pitfalls
 ...
-## 情報源
+## Sources
 1. https://...
 ```
 
-### 既存ドキュメントの取り込み
+### Import Existing Documents
 
-プロジェクト内の既存Markdownを知識ベースに取り込む。フロントマターを自動付与し、INDEXも自動更新。元ファイルは変更しない。
+Import existing Markdown from your project into the knowledge base. Automatically adds frontmatter and updates the INDEX. Original files are not modified.
 
 ```bash
 bun run scripts/import-doc.ts docs/architecture-decision.md \
-  --title "認証基盤のアーキテクチャ決定" \
-  --summary "Session vs JWT比較、PKCE採用の経緯、トークンストレージ戦略" \
+  --title "Auth Architecture Decision" \
+  --summary "Session vs JWT comparison, PKCE adoption rationale, token storage strategy" \
   --tags "auth,architecture,decision"
 ```
 
-### INDEX管理
+### INDEX Management
 
 ```bash
-# 記事をINDEXに追加
+# Add article to INDEX
 bun run scripts/index-manager.ts add <article.md>
 
-# INDEXから削除
+# Remove from INDEX
 bun run scripts/index-manager.ts remove <id>
 
-# articlesディレクトリからINDEX全体を再構築
+# Rebuild entire INDEX from articles directory
 bun run scripts/index-manager.ts rebuild
 
-# キーワード検索
+# Keyword search
 bun run scripts/index-manager.ts search <keyword>
 ```
 
-INDEX.mdの中身:
+INDEX.md contents:
 
 ```markdown
 # Knowledge Base Index
 
 | id | title | summary | tags | updated |
 |----|-------|---------|------|---------|
-| oauth2-pkce-spa | OAuth 2.0 PKCE... | SPAにおけるPKCEフロー... | oauth, security, spa | 2026-03-15 |
-| auth-architecture | 認証基盤の... | Session vs JWT比較... | auth, architecture | 2026-03-15 |
+| oauth2-pkce-spa | OAuth 2.0 PKCE... | PKCE flow for SPAs... | oauth, security, spa | 2026-03-15 |
+| auth-architecture | Auth Architecture... | Session vs JWT comparison... | auth, architecture | 2026-03-15 |
 ```
 
-## セットアップ
+## Setup
 
-### 1. スキルのインストール
+### 1. Install the Skill
 
 ```bash
-# npx skills（推奨）
+# npx skills (recommended)
 npx skills add konaito/prior-knowledge-skill
 
-# または手動クローン
+# Or manual clone
 cd ~/.claude/skills
 git clone https://github.com/konaito/prior-knowledge-skill.git
 cd prior-knowledge-skill && bun install
 ```
 
-### 2. APIキーの設定（リサーチ機能を使う場合）
+### 2. Set API Key (for research features)
 
 ```bash
 echo 'OPENROUTER_API_KEY=sk-or-...' > ~/.claude/skills/prior-knowledge-skill/.env
 ```
 
-[OpenRouter](https://openrouter.ai) でAPIキーを取得。Perplexity sonar-pro モデルを使用。
+Get an API key from [OpenRouter](https://openrouter.ai). Uses the Perplexity sonar-pro model.
 
-APIキーがなくても **取り込み・参照モードは使用可能**。
+Import and reference modes work **without an API key**. Only research requires it.
 
-### 3. CLAUDE.mdに参照指示を追加（推奨）
+### 3. Add Reference Instruction to CLAUDE.md (Recommended)
 
-プロジェクトまたはグローバルのCLAUDE.mdに以下を追加すると、エージェントがタスク着手前に自動的に知識を確認する:
+Add the following to your project or global CLAUDE.md so the agent automatically checks for prior knowledge before starting tasks:
 
 ```markdown
-# 事前知識空間
+# Prior Knowledge Space
 
-タスクに取り組む前に、関連する事前知識がないか確認すること:
-1. `docs/knowledge/INDEX.md` が存在すれば読み、関連する知識を特定
-2. 関連する記事があれば `docs/knowledge/articles/<id>.md` を読んでからタスクに着手
+Before working on a task, check for relevant prior knowledge:
+1. If `docs/knowledge/INDEX.md` exists, read it and identify relevant knowledge
+2. If relevant articles exist, read `docs/knowledge/articles/<id>.md` before starting the task
 ```
 
-## ファイル構成
+## File Structure
 
 ```
 prior-knowledge-skill/
-├── SKILL.md                          # スキル本体（エージェントが読む指示書）
+├── SKILL.md                          # Skill definition (agent instructions)
 ├── scripts/
-│   ├── index-manager.ts              # INDEX.mdのCRUD操作
-│   ├── research.py                   # Perplexity APIでディープリサーチ
-│   └── import-doc.ts                 # 既存Markdownの取り込み
+│   ├── index-manager.ts              # INDEX.md CRUD operations
+│   ├── research.py                   # Deep research via Perplexity API
+│   └── import-doc.ts                 # Import existing Markdown
 ├── references/
-│   └── research-guide.md             # クエリ設計・タグ・品質基準ガイド
+│   └── research-guide.md             # Query design, tagging, quality guide
 ├── assets/
-│   └── article-template.md           # 記事フロントマターテンプレート
-└── package.json                      # bun依存関係（gray-matter）
+│   └── article-template.md           # Article frontmatter template
+└── package.json                      # bun dependencies (gray-matter)
 ```
 
-プロジェクト側に生成されるファイル:
+Generated in your project:
 
 ```
 <project>/
 └── docs/knowledge/
-    ├── INDEX.md                      # タイトル+要約テーブル
+    ├── INDEX.md                      # Title + summary table
     └── articles/
         ├── oauth2-pkce-spa.md
         └── auth-architecture.md
 ```
 
-## 要件
+## Requirements
 
-- [bun](https://bun.sh) — TypeScriptスクリプト実行
-- [uv](https://docs.astral.sh/uv/) — Pythonスクリプト実行（research.pyのみ）
-- [OpenRouter API Key](https://openrouter.ai) — リサーチ機能のみ
+- [bun](https://bun.sh) — TypeScript script execution
+- [uv](https://docs.astral.sh/uv/) — Python script execution (research.py only)
+- [OpenRouter API Key](https://openrouter.ai) — Research feature only
 
 ## License
 
