@@ -186,11 +186,12 @@ INDEX.mdの中身:
 ### 1. スキルのインストール
 
 ```bash
-# ~/.claude/skills/ にクローン
+# npx skills（推奨）
+npx skills add konaito/prior-knowledge-skill
+
+# または手動クローン
 cd ~/.claude/skills
 git clone https://github.com/konaito/prior-knowledge-skill.git
-
-# 依存関係インストール
 cd prior-knowledge-skill && bun install
 ```
 
