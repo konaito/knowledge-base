@@ -77,6 +77,8 @@ bun run ~/.claude/skills/knowledge-base/scripts/import-doc.ts <source.md> \
 
 ## 知識の参照
 
+INDEX.mdはインテントINDEXデータベースとして機能する。コンテキストが圧縮されても、INDEX.mdを1回読むだけでプロジェクトの知識空間全体を把握し、必要な知識を自発的に選択できる。
+
 タスク着手前に以下を実行:
 
 1. `docs/knowledge/INDEX.md` を読む（タイトル+要約テーブルのみ、軽量）
