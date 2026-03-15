@@ -1,4 +1,4 @@
-# knowledge-base
+# prior-knowledge-skill
 
 **AIエージェントのための事前知識空間** — Claude Code Skill
 
@@ -188,16 +188,16 @@ INDEX.mdの中身:
 ```bash
 # ~/.claude/skills/ にクローン
 cd ~/.claude/skills
-git clone https://github.com/konaito/knowledge-base.git
+git clone https://github.com/konaito/prior-knowledge-skill.git
 
 # 依存関係インストール
-cd knowledge-base && bun install
+cd prior-knowledge-skill && bun install
 ```
 
 ### 2. APIキーの設定（リサーチ機能を使う場合）
 
 ```bash
-echo 'OPENROUTER_API_KEY=sk-or-...' > ~/.claude/skills/knowledge-base/.env
+echo 'OPENROUTER_API_KEY=sk-or-...' > ~/.claude/skills/prior-knowledge-skill/.env
 ```
 
 [OpenRouter](https://openrouter.ai) でAPIキーを取得。Perplexity sonar-pro モデルを使用。
@@ -219,7 +219,7 @@ APIキーがなくても **取り込み・参照モードは使用可能**。
 ## ファイル構成
 
 ```
-knowledge-base/
+prior-knowledge-skill/
 ├── SKILL.md                          # スキル本体（エージェントが読む指示書）
 ├── scripts/
 │   ├── index-manager.ts              # INDEX.mdのCRUD操作

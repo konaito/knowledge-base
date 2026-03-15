@@ -32,7 +32,7 @@ if not API_KEY:
 
 MODEL = "perplexity/sonar-pro"
 
-TEMPLATE_PATH = Path.home() / ".claude/skills/knowledge-base/references/article-template.md"
+TEMPLATE_PATH = Path.home() / ".claude/skills/prior-knowledge-skill/references/article-template.md"
 
 
 def slugify(text: str) -> str:
@@ -74,7 +74,7 @@ def research(query: str, output: str | None, tags: list[str]) -> None:
         headers={
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/user/knowledge-base",
+            "HTTP-Referer": "https://github.com/user/prior-knowledge-skill",
             "X-Title": "Knowledge Base Research",
         },
         json={

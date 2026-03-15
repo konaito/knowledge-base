@@ -1,5 +1,5 @@
 {
-  "name": "knowledge-base",
+  "name": "prior-knowledge-skill",
   "private": true,
   "dependencies": {
     "gray-matter": "^4.0.3"

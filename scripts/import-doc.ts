@@ -10,7 +10,7 @@ const PROJECT_ARTICLES = join(process.cwd(), "docs/knowledge/articles");
 const PROJECT_INDEX = join(process.cwd(), "docs/knowledge/INDEX.md");
 const INDEX_MANAGER = join(
   HOME,
-  ".claude/skills/knowledge-base/scripts/index-manager.ts"
+  ".claude/skills/prior-knowledge-skill/scripts/index-manager.ts"
 );
 
 function slugify(text: string): string {
