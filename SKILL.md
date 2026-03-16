@@ -1,6 +1,11 @@
 ---
 name: prior-knowledge-skill
-description: "Prior knowledge space management. Index and accumulate research results so the agent can autonomously select and load relevant knowledge. Triggers: (1) 'research and save to knowledge base', 'look this up beforehand' (2) 'search the knowledge base', 'check prior knowledge' (3) when importing existing documents into the knowledge base"
+description: >
+  Prior knowledge space management. Index and accumulate research results so the agent can
+  autonomously select and load relevant knowledge.
+  Use when user asks to "research and save to knowledge base", "look this up beforehand",
+  "search the knowledge base", "check prior knowledge", or when importing existing documents
+  into the knowledge base.
 ---
 
 # prior-knowledge-skill
@@ -9,104 +14,117 @@ description: "Prior knowledge space management. Index and accumulate research re
 
 The value of a knowledge base lies in **many small reference articles indexed together**, not one giant article.
 
-```
-❌ Bad: one massive article for "authentication"
-✅ Good: decompose into multiple articles
-   - oauth2-pkce-overview.md         ← PKCE basics
-   - oauth2-token-storage.md         ← Token storage strategy comparison
-   - session-vs-jwt.md               ← Session vs JWT
-   - auth-middleware-compliance.md    ← Legal compliance requirements
-```
-
 When asked to research a large topic:
 1. Decompose the topic into 3-7 small aspects
 2. Run research.py for each aspect (1 aspect = 1 article)
 3. Ensure the agent can selectively load only the articles it needs
 
-Use 3 modes:
+## Instructions
 
-| Mode | Trigger | Action |
-|------|---------|--------|
-| **Research** | "research and save", "look this up" | research.py → index-manager.ts add |
-| **Import** | importing existing docs into knowledge base | import-doc.ts (auto-updates INDEX) |
-| **Reference** | before starting a task | read INDEX.md → load relevant articles only |
+### Step 1: Determine the mode
 
-Storage: `docs/knowledge/articles/`, INDEX: `docs/knowledge/INDEX.md`
+| Mode | Trigger | Summary |
+|------|---------|---------|
+| **Research** | "research and save", "look this up" | Research via Perplexity API → save article → add to INDEX |
+| **Import** | Importing existing docs into knowledge base | Copy document → auto-update INDEX |
+| **Reference** | Before starting a task | Read INDEX.md → load only relevant articles |
 
----
+### Step 2: Execute by mode
 
-## Research → Save
+**Research mode:**
 
-Deep research a topic via Perplexity API (search-augmented LLM) and save to the knowledge base.
-For query design, tagging, and quality criteria, see [references/research-guide.md](references/research-guide.md).
-
-**Prerequisite**: research.py requires `OPENROUTER_API_KEY`. Check `~/.claude/skills/prior-knowledge-skill/.env` before running.
-
-If not set, ask the user to configure the API key:
+CRITICAL: research.py requires `OPENROUTER_API_KEY`. If not set, ask the user to configure it.
 
 ```bash
-echo 'OPENROUTER_API_KEY=sk-or-...' >> ~/.claude/skills/prior-knowledge-skill/.env
-```
-
-Import and reference modes work **without an API key**. Only research is restricted.
-
-```bash
-# 1. Run research (specify slug in English)
+# 1. Run research
 uv run ~/.claude/skills/prior-knowledge-skill/scripts/research.py \
   "specific query" \
   --output docs/knowledge/articles/<slug>.md \
   --tags "tag1,tag2"
 
-# 2. Add to INDEX (use the path output to stdout)
+# 2. Add to INDEX
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts add docs/knowledge/articles/<slug>.md
 ```
 
-## Import Existing Documents
+For query design, tagging, and quality criteria, see `references/research-guide.md`.
+
+**Import mode:**
 
 ```bash
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/import-doc.ts <source.md> \
-  [--title "Title"] \
-  [--summary "One-line summary"] \
-  [--tags "tag1,tag2"]
+  [--title "Title"] [--summary "One-line summary"] [--tags "tag1,tag2"]
 ```
 
-- Copies to `docs/knowledge/articles/` with frontmatter, auto-updates INDEX
-- Original file is not modified (non-destructive)
-- Write summaries specifically ([research-guide.md](references/research-guide.md))
+Import and Reference modes work **without an API key**.
 
-## Knowledge Reference
-
-INDEX.md functions as an intent INDEX database. Even after context compression, reading INDEX.md once gives a complete picture of the project's knowledge space, enabling autonomous selection of needed knowledge.
-
-Before starting a task:
+**Reference mode:**
 
 1. Read `docs/knowledge/INDEX.md` (title + summary table only, lightweight)
 2. Identify article IDs relevant to the task
 3. Read `docs/knowledge/articles/<id>.md` before starting work
-   - If 0 relevant articles, proceed without loading (don't force it)
-   - If many relevant articles, narrow to 1-3 most relevant
+   - 0 relevant articles → proceed without loading (don't force it)
+   - Many relevant articles → narrow to 1-3 most relevant
 
-Keyword search is also available:
+## Examples
 
+### Example 1: Pre-research a new technology
+
+User: "Research React Server Components and save to the knowledge base"
+
+1. Decompose: data fetching, caching strategies, Server/Client boundary
+2. Run research.py for each aspect (3 articles generated)
+3. Add each article to INDEX via index-manager.ts
+4. Report results to user
+
+### Example 2: Import an existing document
+
+User: "Add this API spec to the knowledge base"
+
+1. Run import-doc.ts to copy to `docs/knowledge/articles/`
+2. Assign title, summary, and tags (be specific with the summary)
+3. INDEX is auto-updated
+
+### Example 3: Reference knowledge before a task
+
+User: "Implement the auth feature"
+
+1. Read `docs/knowledge/INDEX.md`
+2. Identify "oauth2-pkce-overview" and "session-vs-jwt" as relevant
+3. Load those 2 articles before starting work
+
+## Common Issues
+
+### research.py fails with "API key not found"
+
+Cause: `OPENROUTER_API_KEY` is not set.
+Fix:
+1. Check `~/.claude/skills/prior-knowledge-skill/.env`
+2. If missing: `echo 'OPENROUTER_API_KEY=sk-or-...' >> ~/.claude/skills/prior-knowledge-skill/.env`
+3. Import/Reference modes work **without an API key**
+
+### INDEX is out of sync with actual articles
+
+Cause: Articles were manually added/deleted without updating the INDEX.
+Fix:
 ```bash
-bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts search "keyword"
-```
-
----
-
-## INDEX Management
-
-```bash
-bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts add <article.md>
-bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts remove <id>
 bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts rebuild
-bun run ~/.claude/skills/prior-knowledge-skill/scripts/index-manager.ts search <keyword>
 ```
 
-All default to `docs/knowledge/`. Override with `--index <path>` `--dir <path>`.
+### Articles not found during Reference mode
 
-## Setup
+Cause: Summaries are too vague (e.g., "About React")
+Fix: Rewrite summaries to be specific. See the Summary Design section in `references/research-guide.md`.
 
+### bun install not run yet
+
+Cause: First-time setup was not completed.
+Fix:
 ```bash
 cd ~/.claude/skills/prior-knowledge-skill && bun install
 ```
+
+## References
+
+- `references/research-guide.md` - Query design, tag design, summary design, quality criteria
+- `references/commands.md` - Full command argument reference and setup instructions
+- `assets/article-template.md` - Article frontmatter template
